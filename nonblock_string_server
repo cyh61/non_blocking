@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+# -*- coding=utf-8 -*-
+
+
+"""
+file: service.py
+socket service
+"""
+
+
+import socket
+import threading
+import time
+import sys
+
+
+def socket_service():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  #定义socket类型，网络通信，TCP
+                                                               #socket.SOCK_STREAM，流式socket , for TCP
+        # 防止socket server重启后端口被占用（socket.error: [Errno 98] Address already in use）
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)##setsockopt(level,optname,value)，
+                                                               ##level定义了哪个选项将被使用。通常情况下是SOL_SOCKET，意思是正在使用的socket选项。
+                                                               ##optname参数提供使用的特殊选项，当socket关闭后，本地端用于该socket的端口号立刻就可以被重用。
+
+        s.bind(('127.0.0.1', 6666)) #套接字绑定的IP与端口
+        s.listen(10) ### 监听TCP，10代表：操作系统可以挂起(未处理请求时等待状态)的最大连接数量。该值至少为1
+    except socket.error as msg:
+        print msg
+        sys.exit(1)
+    print 'Waiting connection...'
+
+    while 1:
+        conn, addr = s.accept() ## 开始被动接受TCP客户端的连接。并返回新的套接字与IP地址
+        t = threading.Thread(target=deal_data, args=(conn, addr))##将要执行的方法作为参数传给Thread的构造方法，使用线程。
+                                                                 ##target=deal_data ，deal_data为需要线程去执行的方法名
+                                                                 ##线程执行方法接收的参数，该属性是一个元组。
+        t.start()
+        #t.join()若不加此句，我们的主线程不会等待子线程执行完毕再结束自身。加入此句后子线程执行完毕以后，主线程再关闭。
+def deal_data(conn, addr):
+    print 'Accept new connection from {0}'.format(addr)
+    conn.send('Hi, Welcome to the server!') ##告诉客户端
+    while 1:
+        data = conn.recv(1024)  # 接受TCP数据，1024表示缓冲区的大小
+        print '{0} client send data is {1}'.format(addr, data)#输出
+        #time.sleep(1)#模拟阻塞
+        if data == 'exit' or not data:
+            print '{0} connection close'.format(addr)
+            conn.send('Connection closed!') 
+            break
+        conn.send('Hello, {0}'.format(data))
+    conn.close()
+
+
+if __name__ == '__main__':
+    socket_service()
